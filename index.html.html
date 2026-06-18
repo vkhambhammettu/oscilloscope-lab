@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Oscilloscope Usage Practice Tutorial</title>
+  <style>
+    :root{--bg:#0f172a;--panel:#111827;--panel2:#1f2937;--text:#e5e7eb;--muted:#94a3b8;--accent:#38bdf8;--good:#86efac;--bad:#fca5a5;--warn:#fcd34d;--trace:#34d399}
+    *{box-sizing:border-box} html,body{height:100%;overflow:hidden}
+    body{margin:0;font-family:Arial,Helvetica,sans-serif;background:radial-gradient(circle at top,#1e293b 0,var(--bg) 52%);color:var(--text)}
+    .app{height:100vh;display:grid;grid-template-rows:auto 1fr;gap:6px;padding:8px;max-width:1180px;margin:auto}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 4px}
+    h1{font-size:clamp(1rem,1.6vw,1.35rem);margin:0}.subtitle{color:var(--muted);font-size:.82rem;margin:0;text-align:right}
+    .main{min-height:0;display:grid;grid-template-columns:minmax(430px,58vh) minmax(360px,1fr);gap:8px;align-items:start}.left,.right{min-height:0;display:grid;gap:8px}.left{grid-template-rows:auto auto}.right{grid-template-rows:auto auto 1fr}
+    .card{background:rgba(17,24,39,.95);border:1px solid rgba(148,163,184,.22);border-radius:12px;box-shadow:0 10px 24px rgba(0,0,0,.22);padding:8px;min-height:0}
+    .scope-wrap{width:min(58vh,100%);aspect-ratio:1/1;background:#020617;border-radius:14px;border:7px solid #334155;padding:7px;min-height:0;justify-self:center}canvas{width:100%;height:100%;display:block;background:#020617;border-radius:8px}
+    .readout-bar{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.readout{background:#0f172a;border:1px solid rgba(148,163,184,.25);border-radius:9px;padding:6px}.label{color:var(--muted);font-size:.72rem}.value{font-size:.9rem;font-weight:bold;color:white}
+    .controls{display:grid;grid-template-columns:1fr 1fr;gap:6px}.control{background:var(--panel2);border-radius:10px;padding:6px;border:1px solid rgba(148,163,184,.2)}.control-group{border-radius:12px;padding:7px;border:1px solid rgba(148,163,184,.24);display:grid;gap:6px}.control-group h3{font-size:.82rem;margin:0;color:#e2e8f0}.scale-group{background:rgba(14,165,233,.14);grid-column:1 / -1;grid-template-columns:1fr 1fr}.position-group{background:rgba(34,197,94,.13);grid-column:1 / -1;grid-template-columns:1fr 1fr}.theme-group{background:rgba(168,85,247,.14)}.action-group{background:rgba(245,158,11,.13);display:flex;align-items:end}
+    label{display:flex;justify-content:space-between;gap:8px;font-weight:bold;align-items:center;font-size:.82rem}input[type=range]{width:100%;margin:6px 0 0}select,button,input[type=text]{width:100%;border:1px solid rgba(148,163,184,.28);border-radius:8px;background:#0f172a;color:var(--text);padding:6px;font-size:.86rem}button{cursor:pointer;background:linear-gradient(135deg,#0284c7,#0ea5e9);border:none;font-weight:bold}button.secondary{background:#334155}button.success{background:#16a34a}button:disabled{opacity:.45;cursor:not-allowed}.pill{display:inline-block;padding:2px 7px;border-radius:999px;background:rgba(56,189,248,.15);color:#bae6fd;border:1px solid rgba(56,189,248,.3);font-size:.76rem;white-space:nowrap}.hint{color:var(--muted);font-size:.7rem;margin:3px 0 0}.row{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+    h2,h3{margin:0 0 4px}h2{font-size:1rem}h3{font-size:.96rem}.question-card{background:#0f172a;border-left:5px solid var(--accent);border-radius:10px;padding:8px}.progress{color:var(--muted);font-size:.76rem;margin-bottom:3px}.qtext{font-size:.84rem;margin:3px 0 6px}.feedback{min-height:44px;padding:6px;border-radius:9px;background:#020617;border:1px solid rgba(148,163,184,.25);margin-top:6px;font-size:.82rem}.good{color:var(--good)}.bad{color:var(--bad)}.warn{color:var(--warn)}.formula{font-family:Consolas,Monaco,monospace;background:#020617;color:#bfdbfe;padding:2px 5px;border-radius:5px}
+    .measure-help{height:100%;background:#020617;border:1px solid rgba(148,163,184,.25);border-radius:10px;padding:8px;display:grid;align-content:start;gap:5px}.measure-help p{margin:0;color:#cbd5e1;font-size:.8rem}.measure-help .muted{color:var(--muted);font-size:.75rem}.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.summary .readout{min-height:48px}
+    @media(max-width:980px){html,body{overflow:auto}.app{height:auto}.main{grid-template-columns:1fr}.scope-wrap{width:min(92vw,520px);aspect-ratio:1/1}.controls{grid-template-columns:1fr 1fr}.subtitle{display:none}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Oscilloscope Usage Practice Tutorial</h1>
+    <p class="subtitle">One question at a time: adjust the scope, count divisions, calculate voltage, period, and frequency.</p>
+  </header>
+
+  <main class="main">
+    <section class="left">
+      <div class="card scope-wrap"><canvas id="scope" width="700" height="700" aria-label="Oscilloscope waveform display"></canvas></div>
+      <div class="readout-bar">
+        <div class="readout"><div class="label">Volts / Div</div><div id="vdivRead" class="value"></div></div>
+        <div class="readout"><div class="label">Sec / Div</div><div id="tdivRead" class="value"></div></div>
+        <div class="readout"><div class="label">Signal</div><div id="signalRead" class="value"></div></div>
+      </div>
+    </section>
+
+    <aside class="right">
+      <section class="card controls">
+        <div class="control"><label for="waveType">Waveform <span class="pill">input</span></label><select id="waveType"><option value="sine">Sine</option><option value="square">Square</option><option value="triangle">Triangle</option></select></div>
+        <div class="control theme-group"><label for="themePalette">Color Theme <span class="pill">palette</span></label><select id="themePalette"><option value="blue">Blue/Green</option><option value="amber">Amber</option><option value="purple">Purple</option><option value="red">Red</option><option value="mono">Dark Mono</option></select></div>
+        <div class="control-group scale-group">
+          <h3>Scale</h3><span></span>
+          <div class="control"><label for="vdiv">Volts / Div <span id="vdivVal" class="pill"></span></label><input id="vdiv" type="range" min="0" max="8" step="1" value="5"><p class="hint">10 mV/div to 5 V/div</p></div>
+          <div class="control"><label for="tdiv">Sec / Div <span id="tdivVal" class="pill"></span></label><input id="tdiv" type="range" min="0" max="8" step="1" value="4"></div>
+        </div>
+        <div class="control-group position-group">
+          <h3>Position</h3><span></span>
+          <div class="control"><label for="xpos">Horizontal Position <span id="xposVal" class="pill"></span></label><input id="xpos" type="range" min="-5" max="5" step="0.1" value="0"></div>
+          <div class="control"><label for="ypos">Vertical Position <span id="yposVal" class="pill"></span></label><input id="ypos" type="range" min="-3" max="3" step="0.1" value="0"></div>
+        </div>
+        <div class="control action-group"><button id="newSignal">Refresh</button></div>
+      </section>
+
+      <section class="card" id="calculatorSection">
+        <h2>Practice Calculator</h2>
+        <div class="question-card" id="questionCard">
+          <div id="progress" class="progress"></div>
+          <h3 id="questionTitle"></h3>
+          <p id="questionText" class="qtext"></p>
+          <div id="questionInputArea"></div>
+          <div class="row" style="margin-top:8px"><button id="checkQuestion" class="success">Check</button><button id="nextQuestion" class="secondary" disabled>Next</button></div>
+          <div id="feedback" class="feedback">Begin with Question 1.</div>
+        </div>
+      </section>
+
+      <section class="card measure-help" id="measureHelp">
+        <h2>How to Measure</h2>
+        <p id="helpText">Move your mouse over the active question to see the method for that measurement.</p>
+        <p class="muted">The help changes for voltage, period, and frequency questions.</p>
+        <div class="summary">
+          <div class="readout"><div class="label">Your Vpp</div><div id="yourVpp" class="value">-</div></div>
+          <div class="readout"><div class="label">Your T</div><div id="yourT" class="value">-</div></div>
+          <div class="readout"><div class="label">Your f</div><div id="yourF" class="value">-</div></div>
+        </div>
+      </section>
+    </aside>
+  </main>
+</div>
+
+<script>
+const canvas=document.getElementById('scope'),ctx=canvas.getContext('2d');
+const voltsPerDivOptions=[0.01,0.02,0.05,0.1,0.2,0.5,1,2,5];
+const secPerDivOptions=[0.0001,0.0002,0.0005,0.001,0.002,0.005,0.01,0.02,0.05];
+const vdiv=document.getElementById('vdiv'),tdiv=document.getElementById('tdiv'),xpos=document.getElementById('xpos'),ypos=document.getElementById('ypos'),waveType=document.getElementById('waveType'),themePalette=document.getElementById('themePalette');
+let signal={amplitude:1,frequency:200,phase:0,type:'sine'};
+let answers={vertDiv:null,horizDiv:null,vpp:null,period:null,freq:null};
+let qIndex=0;
+const questions=[
+ {title:'1) Count vertical divisions',text:'Adjust Volts/Div and Vertical Position so the waveform is not clipped. Enter the peak-to-peak vertical divisions.',fields:[{id:'vertDiv',label:'Vertical divisions, peak-to-peak',step:'0.1',placeholder:'Example: 4.0'}],help:'Voltage measurement: count from the lowest point of the waveform to the highest point. Count major grid divisions and estimate partial divisions. This gives vertical divisions, not volts yet.'},
+ {title:'2) Calculate peak-to-peak voltage',text:'Use Vpp = vertical divisions x volts/div. Enter only your calculated Vpp.',fields:[{id:'vpp',label:'Calculated Vpp',step:'any',placeholder:'Examples: 2.5 V, 500 mV'}],help:'Voltage calculation: multiply the vertical division count by the Volts/Div setting shown on the scope. Example: 4 divisions x 0.5 V/div = 2.0 Vpp.'},
+ {title:'3) Count horizontal divisions',text:'Adjust Sec/Div and Horizontal Position to show one complete cycle clearly. Enter divisions for one cycle.',fields:[{id:'horizDiv',label:'Horizontal divisions, one cycle',step:'0.1',placeholder:'Example: 5.0'}],help:'Period measurement: find one complete cycle, such as peak-to-peak or rising-edge to next rising-edge. Count horizontal divisions between those matching points.'},
+ {title:'4) Calculate period',text:'Use T = horizontal divisions x sec/div. Enter your calculated period using engineering notation, such as ms, us, or s.',fields:[{id:'period',label:'Calculated period',step:'any',placeholder:'Examples: 5 ms, 0.005 s, 5000 us'}],help:'Period calculation: multiply the horizontal division count by the Sec/Div setting. Example: 2.5 divisions x 1 ms/div = 2.5 ms = 0.0025 s.'},
+ {title:'5) Calculate frequency',text:'Use f = 1 / T. Enter your calculated frequency using Hz or kHz.',fields:[{id:'freq',label:'Calculated frequency',step:'any',placeholder:'Examples: 200 Hz, 2 kHz'}],help:'Frequency calculation: frequency is the reciprocal of period. Use seconds for T. Example: T = 0.005 s, so f = 1 / 0.005 = 200 Hz.'}
+];
+function niceUnitSeconds(s){if(s<.001)return(s*1e6).toFixed(s<.0002?0:1)+' us';if(s<1)return(s*1e3).toFixed(s<.01?1:0)+' ms';return s.toFixed(2)+' s'}
+function niceHz(hz){return hz>=1000?(hz/1000).toFixed(2)+' kHz':hz.toFixed(1)+' Hz'}
+function parseEngineering(raw,kind){const str=String(raw).trim().toLowerCase().replace('μ','u');const m=str.match(/^([+-]?\d*\.?\d+(?:e[+-]?\d+)?)\s*([a-z]*)$/);if(!m)return NaN;let val=Number(m[1]),u=m[2];if(!isFinite(val)||val<=0)return NaN;if(kind==='time'){if(u===''||u==='s'||u==='sec'||u==='secs'||u==='second'||u==='seconds')return val;if(u==='ms'||u==='msec'||u==='millisecond'||u==='milliseconds')return val*1e-3;if(u==='us'||u==='usec'||u==='microsecond'||u==='microseconds')return val*1e-6;if(u==='ns'||u==='nsec')return val*1e-9;return NaN}if(kind==='freq'){if(u===''||u==='hz')return val;if(u==='khz')return val*1e3;if(u==='mhz')return val*1e6;return NaN}if(kind==='volt'){if(u===''||u==='v'||u==='volt'||u==='volts')return val;if(u==='mv')return val*1e-3;return NaN}return val}
+function niceVolt(v){if(v<1)return(v*1000).toFixed(0)+' mV';return v.toFixed(v<10?1:0)+' V'}
+function rawVolt(v){return v<1?(v*1000).toFixed(0)+' mV':v.toFixed(2)+' V'}
+function getScales(){return{vpd:voltsPerDivOptions[+vdiv.value],spd:secPerDivOptions[+tdiv.value]}}
+function waveform(phase,type){const p=((phase%1)+1)%1;if(type==='square')return p<.5?1:-1;if(type==='triangle')return 4*Math.abs(p-.5)-1;return Math.sin(2*Math.PI*p)}
+function drawGrid(){const W=canvas.width,H=canvas.height;ctx.clearRect(0,0,W,H);ctx.fillStyle='#020617';ctx.fillRect(0,0,W,H);for(let i=0;i<=50;i++){const x=i*W/50;ctx.strokeStyle=i%5===0?'rgba(148,163,184,.32)':'rgba(148,163,184,.10)';ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}for(let i=0;i<=50;i++){const y=i*H/50;ctx.strokeStyle=i%5===0?'rgba(148,163,184,.32)':'rgba(148,163,184,.10)';ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--accent')||'rgba(56,189,248,.65)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);ctx.stroke();ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke()}
+function drawWave(){drawGrid();const W=canvas.width,H=canvas.height,{vpd,spd}=getScales();const totalTime=spd*10,voltsToPixels=H/10/vpd,yOffsetPixels=+ypos.value*(H/10),xOffsetTime=+xpos.value*spd,centerY=H/2-yOffsetPixels;ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--trace')||'#34d399';ctx.lineWidth=4;ctx.beginPath();for(let x=0;x<=W;x++){const t=x/W*totalTime-xOffsetTime,yVal=signal.amplitude*waveform(signal.frequency*t+signal.phase,signal.type),y=centerY-yVal*voltsToPixels;if(x===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)}ctx.stroke();updateReadouts()}
+function updateReadouts(){const{vpd,spd}=getScales();document.getElementById('vdivVal').textContent=niceVolt(vpd)+'/div';document.getElementById('tdivVal').textContent=niceUnitSeconds(spd)+'/div';document.getElementById('xposVal').textContent=(+xpos.value).toFixed(1)+' div';document.getElementById('yposVal').textContent=(+ypos.value).toFixed(1)+' div';document.getElementById('vdivRead').textContent=niceVolt(vpd)+'/div';document.getElementById('tdivRead').textContent=niceUnitSeconds(spd)+'/div';document.getElementById('signalRead').textContent=signal.type+', hidden values'}
+function renderQuestion(){const q=questions[qIndex];document.getElementById('progress').textContent='Question '+(qIndex+1)+' of '+questions.length;document.getElementById('questionTitle').textContent=q.title;document.getElementById('questionText').textContent=q.text;document.getElementById('questionInputArea').innerHTML=q.fields.map(f=>'<div class="control"><label for="'+f.id+'">'+f.label+'</label><input id="'+f.id+'" type="text" inputmode="decimal" placeholder="'+f.placeholder+'" value="'+(answers[f.id]??'')+'"></div>').join('');document.getElementById('nextQuestion').disabled=true;document.getElementById('feedback').textContent='Answer this question, then click Check. Hover over this question for measuring help.';document.getElementById('helpText').textContent='Move your mouse over the active question to see the method for that measurement.'}
+function setSummary(){document.getElementById('yourVpp').textContent=answers.vpp?rawVolt(answers.vpp):'-';document.getElementById('yourT').textContent=answers.period?niceUnitSeconds(answers.period):'-';document.getElementById('yourF').textContent=answers.freq?niceHz(answers.freq):'-'}
+function percentErr(student,actual){return Math.abs(student-actual)/actual}
+function guideMessage(){const{vpd,spd}=getScales(),actualVert=2*signal.amplitude/vpd,actualHoriz=(1/signal.frequency)/spd;if(qIndex===0)return 'Count vertical divisions from bottom peak to top peak. The waveform should be near '+actualVert.toFixed(1)+' divisions. Recount using the grid, then try again.';if(qIndex===1)return 'Use your vertical division count x volts/div. Calculation: '+(answers.vertDiv||actualVert).toFixed(2)+' div x '+niceVolt(vpd)+'/div. Enter the product in volts or mV.';if(qIndex===2)return 'Count one full cycle horizontally, such as peak to next peak. It should be near '+actualHoriz.toFixed(1)+' divisions. Adjust Sec/Div or Horizontal Position if needed.';if(qIndex===3)return 'Use horizontal divisions x sec/div. Calculation: '+(answers.horizDiv||actualHoriz).toFixed(2)+' div x '+niceUnitSeconds(spd)+'/div. You may enter the answer as s, ms, us, or ns.';return 'Use f = 1 / T. Use period in seconds. You can type frequency as Hz, kHz, or MHz.'}
+function checkQuestion(){const{vpd,spd}=getScales(),fb=document.getElementById('feedback'),q=questions[qIndex];for(const f of q.fields){const el=document.getElementById(f.id);let kind='plain';if(f.id==='period')kind='time';if(f.id==='freq')kind='freq';if(f.id==='vpp')kind='volt';const parsed=parseEngineering(el.value,kind);answers[f.id]=parsed;if(!parsed||!isFinite(parsed)){fb.innerHTML='<span class="bad">Enter a valid engineering value. Examples: 5 ms, 250 us, 0.005 s, 2 kHz, 500 mV.</span>';return}}
+ const actualVert=2*signal.amplitude/vpd,actualHoriz=(1/signal.frequency)/spd;let ok=false,correct='';
+ if(qIndex===0){ok=percentErr(answers.vertDiv,actualVert)<=.10;correct=actualVert.toFixed(2)+' vertical divisions'}
+ if(qIndex===1){const actualV=2*signal.amplitude;ok=percentErr(answers.vpp,actualV)<=.10;correct=rawVolt(actualV)}
+ if(qIndex===2){ok=percentErr(answers.horizDiv,actualHoriz)<=.10;correct=actualHoriz.toFixed(2)+' horizontal divisions'}
+ if(qIndex===3){const actualT=1/signal.frequency;ok=percentErr(answers.period,actualT)<=.10;correct=niceUnitSeconds(actualT)+' ('+actualT.toPrecision(3)+' s)'}
+ if(qIndex===4){ok=percentErr(answers.freq,signal.frequency)<=.10;correct=niceHz(signal.frequency)}
+ if(ok){fb.innerHTML='<span class="good">Correct or within +/-10%. </span>Expected value: '+correct+'.';document.getElementById('nextQuestion').disabled=false}else{fb.innerHTML='<span class="warn">Not quite. </span>'+guideMessage();document.getElementById('nextQuestion').disabled=true}setSummary()}
+function nextQuestion(){if(qIndex<questions.length-1){qIndex++;renderQuestion()}else{document.getElementById('feedback').innerHTML='<span class="good">Tutorial complete. Use Refresh to practice again.</span>';document.getElementById('nextQuestion').disabled=true}}
+function clearAnswers(){answers={vertDiv:null,horizDiv:null,vpp:null,period:null,freq:null};qIndex=0;renderQuestion();setSummary()}
+function randomSignal(){const amplitudes=[.05,.1,.2,.35,.5,.75,1,1.5,2,2.5],freqs=[20,50,100,200,400,500,1000,2000,5000];signal.amplitude=amplitudes[Math.floor(Math.random()*amplitudes.length)];signal.frequency=freqs[Math.floor(Math.random()*freqs.length)];signal.phase=Math.random();signal.type=waveType.value;xpos.value=0;ypos.value=0;clearAnswers();drawWave()}
+
+function applyTheme(name){const themes={
+ blue:{bg:'#0f172a',panel:'#111827',panel2:'#1f2937',accent:'#38bdf8',trace:'#34d399'},
+ amber:{bg:'#1c1917',panel:'#1c1917',panel2:'#292524',accent:'#f59e0b',trace:'#fde047'},
+ purple:{bg:'#1e1b4b',panel:'#171525',panel2:'#312e81',accent:'#a78bfa',trace:'#f0abfc'},
+ red:{bg:'#1f1111',panel:'#1b1212',panel2:'#3f1d1d',accent:'#fb7185',trace:'#fca5a5'},
+ mono:{bg:'#111827',panel:'#111827',panel2:'#374151',accent:'#d1d5db',trace:'#f9fafb'}
+};const t=themes[name]||themes.blue;const r=document.documentElement;r.style.setProperty('--bg',t.bg);r.style.setProperty('--panel',t.panel);r.style.setProperty('--panel2',t.panel2);r.style.setProperty('--accent',t.accent);r.style.setProperty('--trace',t.trace);drawWave()}
+[vdiv,tdiv,xpos,ypos].forEach(el=>el.addEventListener('input',drawWave));waveType.addEventListener('change',()=>{signal.type=waveType.value;clearAnswers();drawWave()});
+document.getElementById('newSignal').addEventListener('click',randomSignal);themePalette.addEventListener('change',()=>applyTheme(themePalette.value));document.getElementById('checkQuestion').addEventListener('click',checkQuestion);document.getElementById('nextQuestion').addEventListener('click',nextQuestion);
+document.getElementById('questionCard').addEventListener('mouseover',()=>{document.getElementById('helpText').textContent=questions[qIndex].help});document.getElementById('questionCard').addEventListener('mouseout',()=>{document.getElementById('helpText').textContent='Move your mouse over the active question to see the method for that measurement.'});
+randomSignal();renderQuestion();setSummary();applyTheme(themePalette.value);
+</script>
+</body>
+</html>
